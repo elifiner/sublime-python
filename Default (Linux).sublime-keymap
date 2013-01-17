@@ -1,0 +1,14 @@
+[
+  {
+    "keys": ["ctrl+f3"], 
+    "command": "go_to_python_definition" 
+  },
+  {
+    "keys": ["ctrl+shift+r"], 
+    "command": "go_to_python_definition_dialog" 
+  },
+  {
+    "keys": ["ctrl+alt+shift+r"], 
+    "command": "parse_python_symbols" 
+  }
+]
