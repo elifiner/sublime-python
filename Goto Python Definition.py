@@ -7,10 +7,8 @@ import sublime_plugin
 """
 TODO
 
-* sometimes hangs
 * support multiple windows with different projects
 * support switching project in same window
-* rescan directory when adding to project (using timeout)
 * class variables, globals and instance vars don't work
 * add configuration: ignore directories, python location
 * find better name for plugin
@@ -45,13 +43,11 @@ class Symbols(object):
             # already running, ignore
             return
         self._thread = threading.Thread(target=self._scan_all_thread, name=self.THREAD_NAME)
+        self._thread.daemon = True
         self._thread.start()
 
     def scan_single(self, filename):
-        if not self.loaded:
-            return
         symbols = self._load_symbols(['-f', filename])
-        print len(symbols), len(self._symbols)
         with self._lock:
             # remove previous symbols for this filename
             self._symbols = [sym for sym in self._symbols if sym[1] != filename]
@@ -63,7 +59,11 @@ class Symbols(object):
         def add_symbol(symbol, filename, line):
             symbols.append((symbol, filename, line))
         def show_progress(percent):
-            sublime.status_message("scanning python symbols (%d%% done)..." % percent)
+            sublime.set_timeout(
+                lambda: sublime.status_message("scanning python symbols (%d%% done)..." % percent),
+                0
+            )
+
         options = []
         for directory in directories:
             options.append('-d')
@@ -72,7 +72,6 @@ class Symbols(object):
         with self._lock:
             self._symbols = symbols
         self.loaded = True
-        self._single_file = None
 
     def _load_symbols(self, options):
         import subprocess
@@ -101,6 +100,7 @@ class GoToPythonDefinitionDialogCommand(sublime_plugin.WindowCommand):
     def run(self):
         if not SYMBOLS.loaded:
             error("Symbols haven't been loaded yet, please wait.")
+            SYMBOLS.scan_all()
             return
         symbols = sorted(SYMBOLS.get_symbols())
         symbols = [[sym[0], '%s:%d' % (sym[1], sym[2])]  for sym in symbols]
@@ -116,6 +116,7 @@ class GoToPythonDefinitionCommand(sublime_plugin.TextCommand):
     def run(self, edit):
         if not SYMBOLS.loaded:
             error("Symbols haven't been loaded yet, please wait.")
+            SYMBOLS.scan_all()
             return
         word = self.view.substr(self.view.word(self.view.sel()[0]))
         if not word:
@@ -137,12 +138,19 @@ class ParsePythonSymbolsCommand(sublime_plugin.WindowCommand):
     def run(self):
         SYMBOLS.scan_all()
 
-class GotoSymbolListener(sublime_plugin.EventListener):
+class Listener(sublime_plugin.EventListener):
+    def __init__(self):
+        super(Listener, self).__init__()
+        self.prev_folders = []
+
     def on_load(self, view):
-        SYMBOLS.scan_single(view.file_name())
+        if not SYMBOLS.loaded or self.prev_folders != sublime.active_window().folders():
+            self.prev_folders = sublime.active_window().folders()
+            SYMBOLS.scan_all()
+        else:
+            SYMBOLS.scan_single(view.file_name())
 
     def on_post_save(self, view):
         SYMBOLS.scan_single(view.file_name())
 
 SYMBOLS = Symbols()
-SYMBOLS.scan_all()
