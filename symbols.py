@@ -13,31 +13,41 @@ class SymbolVisitor(ast.NodeVisitor):
         self.filename = filename
         self._parents = []
 
-    def print_symbol(self, name, line):
-        print "symbol(symbol='%s', filename='%s', line=%d)" % (name, self.filename, line)
+    def print_symbol(self, name, type, line):
+        print "symbol(name='%s', type='%s', filename='%s', line=%d)" % (name, type, self.filename, line)
 
     def visit_FunctionDef(self, node):
         if not (node.name.startswith('__') and node.name.endswith('__')):
-            self.print_symbol(node.name, node.lineno)
-        super(SymbolVisitor, self).generic_visit(node)
+            if isinstance(self._parents[-1], ast.ClassDef):
+                self.print_symbol(node.name, 'method', node.lineno)
+            else:
+                self.print_symbol(node.name, 'function', node.lineno)
+        return self.generic_visit(node)
 
     def visit_ClassDef(self, node):
-        self.print_symbol(node.name, node.lineno)
-        super(SymbolVisitor, self).generic_visit(node)
+        self.print_symbol(node.name, 'class', node.lineno)
+        return self.generic_visit(node)
 
     def visit_Assign(self, node):
         parent = self._parents[-1]
+
+        # globals variables
+        if isinstance(parent, ast.Module):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    self.print_symbol(target.id, 'global-attr', node.lineno)
 
         # instance variables
         if isinstance(parent, ast.FunctionDef) and parent.name == '__init__':
             for target in node.targets:
                 if isinstance(target, ast.Attribute):
-                    self.print_symbol(node.name, node.lineno)
+                    self.print_symbol(target.attr, 'object-attr', node.lineno)
                     
         # class variables
         elif isinstance(parent, ast.ClassDef):
             for target in node.targets:
-                self.print_symbol(node.id, node.lineno)
+                if isinstance(target, ast.Attribute):
+                    self.print_symbol(target.attr, 'class-attr', node.lineno)
 
     def generic_visit(self, node):
         self._parents.append(node)
