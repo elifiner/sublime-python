@@ -1,0 +1,6 @@
+{
+    // The symbol parser runs in an external process to allows parsing with
+    // different python versions. You can point to the correct Python 
+    // implementation here.
+    "python_binary": "python"
+}

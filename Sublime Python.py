@@ -6,14 +6,9 @@ from collections import defaultdict
 import sublime
 import sublime_plugin
 
-"""
-TODO
+SETTINGS = sublime.load_settings('Sublime Python.sublime-settings')
 
-* add configuration: ignore directories, python location
-
-"""
-
-PYTHON = '/usr/bin/python2.7'
+PYTHON = SETTINGS.get('python_binary', 'python')
 APPDIR = os.path.abspath(os.path.split(__file__)[0])
 
 def error(message):
