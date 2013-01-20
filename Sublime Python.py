@@ -19,7 +19,7 @@ PYTHON = '/usr/bin/python2.7'
 APPDIR = os.path.abspath(os.path.split(__file__)[0])
 
 def error(message):
-    sublime.message_dialog("Goto Python Definition\n\n" + message)
+    sublime.message_dialog("Sublime Python\n\n" + message)
 
 class SymbolManager(object):
     THREAD_NAME = "c50d5e10-60de-11e2-bcfd-0800200c9a66"
@@ -92,7 +92,7 @@ class SymbolManager(object):
         else:
             sublime.status_message("")
 
-class GoToPythonDefinitionDialogCommand(sublime_plugin.WindowCommand):
+class SublimePythonGotoDialogCommand(sublime_plugin.WindowCommand):
     def run(self):
         manager = MANAGERS[self.window.id()]
         if not manager.loaded:
@@ -109,7 +109,7 @@ class GoToPythonDefinitionDialogCommand(sublime_plugin.WindowCommand):
             self.window.open_file(symbols[index][1]+':0', sublime.ENCODED_POSITION)
         self.window.show_quick_panel(symbols, goto_symbol)
 
-class GoToPythonDefinitionCommand(sublime_plugin.TextCommand):
+class SublimePythonGotoWordCommand(sublime_plugin.TextCommand):
     def run(self, edit):
         manager = MANAGERS[self.view.window().id()]
         if not manager.loaded:
@@ -132,13 +132,13 @@ class GoToPythonDefinitionCommand(sublime_plugin.TextCommand):
         else:
             error("Can't find definition for '%s'." % word)
 
-class ParsePythonSymbolsCommand(sublime_plugin.WindowCommand):
+class SublimePythonScanCommand(sublime_plugin.WindowCommand):
     def run(self):
         MANAGERS[sublime.active_window()].scan_all()
 
-class EventListener(sublime_plugin.EventListener):
+class SublimePythonEventListener(sublime_plugin.EventListener):
     def __init__(self):
-        super(EventListener, self).__init__()
+        super(SublimePythonEventListener, self).__init__()
         self.prev_folders = defaultdict(list)
 
     def on_load(self, view):

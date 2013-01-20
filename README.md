@@ -1,4 +1,4 @@
-sublime-pygodef
-===============
+Sublime Python
+==============
 
-Sublime Edit 2 Plugin - Go To Definition for Python
+Sublime Edit 2 Plugin - Sublime Python

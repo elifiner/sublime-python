@@ -1,14 +1,14 @@
 [
   {
     "keys": ["ctrl+f3"], 
-    "command": "go_to_python_definition" 
+    "command": "sublime_python_goto_word"
   },
   {
     "keys": ["ctrl+shift+r"], 
-    "command": "go_to_python_definition_dialog" 
+    "command": "sublime_python_goto_dialog"
   },
   {
     "keys": ["ctrl+alt+shift+r"], 
-    "command": "parse_python_symbols" 
+    "command": "sublime_python_scan" 
   }
 ]
