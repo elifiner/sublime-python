@@ -1,6 +1,7 @@
 import os
 import threading
 import subprocess
+from collections import defaultdict
 
 import sublime
 import sublime_plugin
@@ -8,8 +9,6 @@ import sublime_plugin
 """
 TODO
 
-* support multiple windows with different projects
-* support switching project in same window
 * class variables, globals and instance vars don't work
 * add configuration: ignore directories, python location
 * find better name for plugin
@@ -20,9 +19,9 @@ PYTHON = '/usr/bin/python2.7'
 APPDIR = os.path.abspath(os.path.split(__file__)[0])
 
 def error(message):
-    sublime.error_message("Goto Python Definition\n\n" + message)
+    sublime.message_dialog("Goto Python Definition\n\n" + message)
 
-class Symbols(object):
+class SymbolManager(object):
     THREAD_NAME = "c50d5e10-60de-11e2-bcfd-0800200c9a66"
 
     def __init__(self):
@@ -95,11 +94,12 @@ class Symbols(object):
 
 class GoToPythonDefinitionDialogCommand(sublime_plugin.WindowCommand):
     def run(self):
-        if not SYMBOLS.loaded:
-            error("Symbols haven't been loaded yet, please wait.")
-            SYMBOLS.scan_all()
+        manager = MANAGERS[self.window.id()]
+        if not manager.loaded:
+            error("Loading symbols, please try in a few moments...")
+            manager.scan_all()
             return
-        symbols = sorted(SYMBOLS.get_symbols())
+        symbols = sorted(manager.get_symbols())
         symbols = [[sym[0], '%s:%d' % (sym[1], sym[2])]  for sym in symbols]
         if not symbols:
             error("No symbols found.")
@@ -111,14 +111,15 @@ class GoToPythonDefinitionDialogCommand(sublime_plugin.WindowCommand):
 
 class GoToPythonDefinitionCommand(sublime_plugin.TextCommand):
     def run(self, edit):
-        if not SYMBOLS.loaded:
-            error("Symbols haven't been loaded yet, please wait.")
-            SYMBOLS.scan_all()
+        manager = MANAGERS[self.view.window().id()]
+        if not manager.loaded:
+            error("Loading symbols, please try in a few moments...")
+            manager.scan_all()
             return
         word = self.view.substr(self.view.word(self.view.sel()[0]))
         if not word:
             return
-        symbols = SYMBOLS.get_symbols()
+        symbols = manager.get_symbols()
         matches = [[sym[0], '%s:%d' % (sym[1], sym[2])] for sym in symbols if word == sym[0]]
         def goto_match(index):
             if index == -1:
@@ -133,21 +134,24 @@ class GoToPythonDefinitionCommand(sublime_plugin.TextCommand):
 
 class ParsePythonSymbolsCommand(sublime_plugin.WindowCommand):
     def run(self):
-        SYMBOLS.scan_all()
+        MANAGERS[sublime.active_window()].scan_all()
 
-class Listener(sublime_plugin.EventListener):
+class EventListener(sublime_plugin.EventListener):
     def __init__(self):
-        super(Listener, self).__init__()
-        self.prev_folders = []
+        super(EventListener, self).__init__()
+        self.prev_folders = defaultdict(list)
 
     def on_load(self, view):
-        if not SYMBOLS.loaded or self.prev_folders != sublime.active_window().folders():
-            self.prev_folders = sublime.active_window().folders()
-            SYMBOLS.scan_all()
+        window_id = view.window().id()
+        manager = MANAGERS[window_id]
+        if not manager.loaded or self.prev_folders[window_id] != sublime.active_window().folders():
+            self.prev_folders[window_id] = sublime.active_window().folders()
+            manager.scan_all()
         else:
-            SYMBOLS.scan_file(view.file_name())
+            manager.scan_file(view.file_name())
 
     def on_post_save(self, view):
-        SYMBOLS.scan_file(view.file_name())
+        manager = MANAGERS[view.window().id()]
+        manager.scan_file(view.file_name())
 
-SYMBOLS = Symbols()
+MANAGERS = defaultdict(SymbolManager)
