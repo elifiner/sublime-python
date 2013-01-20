@@ -1,5 +1,6 @@
 import os
 import threading
+import subprocess
 
 import sublime
 import sublime_plugin
@@ -23,10 +24,12 @@ def error(message):
 
 class Symbols(object):
     THREAD_NAME = "c50d5e10-60de-11e2-bcfd-0800200c9a66"
+
     def __init__(self):
         self._symbols = []
         self._lock = threading.RLock()
         self._thread = None
+        self._progress = None
         self.loaded = False
 
     def get_symbols(self):
@@ -34,52 +37,38 @@ class Symbols(object):
             return self._symbols[:]
 
     def scan_all(self):
-        oldThreads = [t for t in threading.enumerate() if t.name == self.THREAD_NAME]
-        if not self._thread and oldThreads:
-            # old threads running (after plugin reload), try again a bit later
-            sublime.set_timeout(self.scan_all, 1000)
+        options = []
+        for directory in sublime.active_window().folders():
+            options.append('-d')
+            options.append(directory)
+        def callback(symbols):
+            self._symbols = symbols
+            self.loaded = True
+        self._scan(options, callback)
+
+    def scan_file(self, filename):
+        def callback(symbols):
+            self._symbols = [sym for sym in self._symbols if sym[1] != filename]
+            self._symbols.extend(symbols)
+        self._scan(['-f', filename], callback)
+
+    def _scan(self, options, callback):
+        old_threads = [t for t in threading.enumerate() if t.name == self.THREAD_NAME]
+        if old_threads:
             return
-        if self._thread and self._thread.is_alive():
-            # already running, ignore
-            return
-        self._thread = threading.Thread(target=self._scan_all_thread, name=self.THREAD_NAME)
+        self._progress = 0
+        self._show_progress()
+        self._thread = threading.Thread(
+            target=lambda: self._scan_thread(options, callback), 
+            name=self.THREAD_NAME
+        )
         self._thread.daemon = True
         self._thread.start()
 
-    def scan_single(self, filename):
-        symbols = self._load_symbols(['-f', filename])
-        with self._lock:
-            # remove previous symbols for this filename
-            self._symbols = [sym for sym in self._symbols if sym[1] != filename]
-            self._symbols.extend(symbols)
-
-    def _scan_all_thread(self):
-        directories = sublime.active_window().folders()
+    def _scan_thread(self, options, callback):
         symbols = []
         def add_symbol(symbol, filename, line):
             symbols.append((symbol, filename, line))
-        def show_progress(percent):
-            sublime.set_timeout(
-                lambda: sublime.status_message("scanning python symbols (%d%% done)..." % percent),
-                0
-            )
-
-        options = []
-        for directory in directories:
-            options.append('-d')
-            options.append(directory)
-        symbols = self._load_symbols(options)
-        with self._lock:
-            self._symbols = symbols
-        self.loaded = True
-
-    def _load_symbols(self, options):
-        import subprocess
-        symbols = []
-        def add_symbol(symbol, filename, line):
-            symbols.append((symbol, filename, line))
-        def show_progress(percent):
-            sublime.status_message("scanning python symbols (%d%% done)..." % percent)
         process = subprocess.Popen([PYTHON, '-u', '%s/symbols.py' % APPDIR] + options, 
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         while True:
@@ -87,14 +76,22 @@ class Symbols(object):
             if not line:
                 break
             eval(line, dict(
-                progress=show_progress,
+                progress=self._update_progress,
                 symbol=add_symbol
             ))
-        # errors = process.stderr.read()
-        # if errors:
-        #     print errors
-        sublime.status_message("")
-        return symbols
+        self._update_progress(None)
+        with self._lock:
+            callback(symbols)
+
+    def _update_progress(self, percent):
+        self._progress = percent
+
+    def _show_progress(self):
+        if self._progress is not None:
+            sublime.status_message("scanning python symbols (%d%% done)..." % self._progress)
+            sublime.set_timeout(self._show_progress, 200)
+        else:
+            sublime.status_message("")
 
 class GoToPythonDefinitionDialogCommand(sublime_plugin.WindowCommand):
     def run(self):
@@ -148,9 +145,9 @@ class Listener(sublime_plugin.EventListener):
             self.prev_folders = sublime.active_window().folders()
             SYMBOLS.scan_all()
         else:
-            SYMBOLS.scan_single(view.file_name())
+            SYMBOLS.scan_file(view.file_name())
 
     def on_post_save(self, view):
-        SYMBOLS.scan_single(view.file_name())
+        SYMBOLS.scan_file(view.file_name())
 
 SYMBOLS = Symbols()
