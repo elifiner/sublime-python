@@ -17,12 +17,12 @@
                         [
                             {
                                 "command": "open_file",
-                                "args": {"file": "${packages}/Sublime Python/Sublime Python.sublime-settings"},
+                                "args": {"file": "${packages}/sublime-python/Sublime Python.sublime-settings"},
                                 "caption": "Settings – Default"
                             },
                             {
                                 "command": "open_file",
-                                "args": {"file": "${packages}/Sublime Python/Default.sublime-keymap"},
+                                "args": {"file": "${packages}/sublime-python/Default.sublime-keymap"},
                                 "caption": "Key Bindings – Default"
                             }
                         ]

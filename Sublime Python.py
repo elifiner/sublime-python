@@ -54,8 +54,9 @@ class SymbolManager(object):
             options.append('-d')
             options.append(directory)
         for view in sublime.active_window().views():
-            options.append('-f')
-            options.append(view.file_name())
+            if view.file_name():
+                options.append('-f')
+                options.append(view.file_name())
         def callback(symbols):
             self._symbols.set_all(symbols)
             self.loaded = True
