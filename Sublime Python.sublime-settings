@@ -6,7 +6,9 @@
 
     // A list of additional directories to scan (usually Python standard
     // library and frameworks).
-    "include_dirs" : [],
+    "include_dirs" : [
+        "/usr/lib/python2.7"
+    ],
 
     // Don't scan files in directories containing these strings
     "exclude_dirs" : [
