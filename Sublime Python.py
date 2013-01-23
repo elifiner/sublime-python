@@ -6,8 +6,7 @@ from collections import defaultdict, namedtuple
 import sublime
 import sublime_plugin
 
-SETTINGS = sublime.load_settings('Sublime Python.sublime-settings')
-
+SETTINGS = sublime.load_settings(__name__ + '.sublime-settings')
 PYTHON = SETTINGS.get('python_binary', 'python')
 APPDIR = os.path.abspath(os.path.split(__file__)[0])
 
@@ -20,18 +19,31 @@ class Symbol(SymbolBase):
     def location(self):
         return '%s:%d' % (self.filename, self.line)
 
+    @property
+    def full(self):
+        return '%s:%s:%d' % (self.name, self.filename, self.line)
+
 class Symbols(object):
     def __init__(self):
         self._symbols = []
         self._lock = threading.RLock()
 
     def get_all(self):
+        recent_symbols = SETTINGS.get('recent_symbols', [])
+        def priority(symbol):
+            try:
+                return recent_symbols.index(symbol.full)
+            except ValueError:
+                return (symbol.name, symbol.filename, symbol.line)
+
         with self._lock:
-            return self._symbols[:]
+            symbols = self._symbols[:]
+            symbols.sort(key=priority)
+            return symbols
 
     def set_all(self, symbols):
         with self._lock:
-            self._symbols = sorted(set(symbols))
+            self._symbols = list(set(symbols))
 
     def set_file_symbols(self, filename, symbols):
         with self._lock:
@@ -125,10 +137,20 @@ class SymbolManager(object):
         else:
             sublime.status_message("")
 
+def add_recent_symbol(symbol):
+    settings = sublime.load_settings(__name__ + '.sublime-settings')
+    recent_symbols = settings.get('recent_symbols', [])
+    recent_symbols = [s for s in recent_symbols if s != symbol.full]
+    recent_symbols = recent_symbols[:20] # keep list short
+    recent_symbols.insert(0, symbol.full)
+    settings.set('recent_symbols', recent_symbols)
+    sublime.save_settings(__name__ + '.sublime-settings')
+
 def goto_symbol(window, symbols):
     def on_selection(index):
         if index == -1:
             return
+        add_recent_symbol(symbols[index])
         window.open_file(symbols[index].location+':0', sublime.ENCODED_POSITION)
     if not symbols:
         error("No matching symbols found.")
@@ -184,7 +206,7 @@ class SublimePythonEventListener(sublime_plugin.EventListener):
         manager = MANAGERS[sublime.active_window().id()]
         file_name = view.file_name()
         for folder in sublime.active_window().folders():
-            if file_name.startwith(folder):
+            if file_name and file_name.startwith(folder):
                 break
         else:
             manager.remove_file(file_name)

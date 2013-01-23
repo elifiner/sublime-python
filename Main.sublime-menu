@@ -22,6 +22,11 @@
                             },
                             {
                                 "command": "open_file",
+                                "args": {"file": "${packages}/User/Sublime Python.sublime-settings"},
+                                "caption": "Settings – User"
+                            },
+                            {
+                                "command": "open_file",
                                 "args": {"file": "${packages}/sublime-python/Default.sublime-keymap"},
                                 "caption": "Key Bindings – Default"
                             }
