@@ -1,0 +1,17 @@
+[
+    {
+        "caption": "SublimePython: Go To Symbol",
+        "command": "sublime_python_goto_word",
+        "args": {}
+    },
+    {
+        "caption": "SublimePython: Open Dialog",
+        "command": "sublime_python_goto_dialog",
+        "args": {}
+    },
+    {
+        "caption": "SublimePython: Scan Project",
+        "command": "sublime_python_scan",
+        "args": {}
+    }
+]

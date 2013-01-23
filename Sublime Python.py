@@ -25,7 +25,7 @@ class Symbols(object):
 
     def set_all(self, symbols):
         with self._lock:
-            self._symbols = symbols
+            self._symbols = sorted(set(symbols))
 
     def set_file_symbols(self, filename, symbols):
         with self._lock:
@@ -77,7 +77,7 @@ class SymbolManager(object):
         self._progress = 0
         self._show_progress()
         self._thread = threading.Thread(
-            target=lambda: self._scan_thread(options, callback), 
+            target=lambda: self._scan_thread(options, callback),
             name=self.THREAD_NAME
         )
         self._thread.daemon = True
@@ -87,7 +87,7 @@ class SymbolManager(object):
         symbols = []
         def add_symbol(name, type, filename, line):
             symbols.append((name, filename, line))
-        process = subprocess.Popen([PYTHON, '-u', '%s/symbols.py' % APPDIR] + options, 
+        process = subprocess.Popen([PYTHON, '-u', '%s/symbols.py' % APPDIR] + options,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         while True:
             line = process.stdout.readline()
@@ -121,7 +121,7 @@ class SublimePythonGotoDialogCommand(sublime_plugin.WindowCommand):
             error("Loading symbols, please try in a few moments...")
             manager.scan_all()
             return
-        symbols = sorted(manager.get_symbols())
+        symbols = manager.get_symbols()
         symbols = [[sym[0], '%s:%d' % (sym[1], sym[2])]  for sym in symbols]
         if not symbols:
             error("No symbols found.")
@@ -176,7 +176,12 @@ class SublimePythonEventListener(sublime_plugin.EventListener):
 
     def on_close(self, view):
         manager = MANAGERS[sublime.active_window().id()]
-        manager.remove_file(view.file_name())
+        file_name = view.file_name()
+        for folder in sublime.active_window().folders():
+            if file_name.startwith(folder):
+                break
+        else:
+            manager.remove_file(file_name)
 
     def on_post_save(self, view):
         manager = MANAGERS[view.window().id()]
