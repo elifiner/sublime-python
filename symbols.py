@@ -67,6 +67,7 @@ if __name__ == '__main__':
     parser = OptionParser(usage="%prog [options]", description="Prints symbols found in Python files")
     parser.add_option("-f", "--file", metavar="FILE", dest="files", action="append", help="parse FILE")
     parser.add_option("-d", "--dir", metavar="DIR", dest="dirs", action="append", help="recursively read files from DIR")
+    parser.add_option("-x", "--exclude", metavar="DIR", dest="exclude", action="append", help="exclude files containing DIR in their paths")
     (options, args) = parser.parse_args()
 
     if not options.dirs and not options.files:
@@ -75,13 +76,19 @@ if __name__ == '__main__':
 
     paths = list(walk(options.dirs or []))
     paths.extend(options.files or [])
-    paths = [p for p in paths if p.endswith('.py') and "/.git/" not in p]
+    filtered = []
+    for path in paths:
+        for ex in options.exclude:
+            if ex in path:
+                break
+        else:
+            if path.endswith('.py'):
+                filtered.append(path)
 
     percent = 0
-    for i, path in enumerate(paths):
-        new_percent = (i+1) * 100 / len(paths)
+    for i, path in enumerate(filtered):
+        new_percent = (i+1) * 100 / len(filtered)
         if new_percent > percent:
             percent = new_percent
             print "progress(%d)" % percent
-
         print_symbols(path)

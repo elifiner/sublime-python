@@ -2,5 +2,14 @@
     // The symbol parser runs in an external process to allows parsing with
     // different python versions. You can point to the correct Python 
     // implementation here.
-    "python_binary": "python"
+    "python_binary": "python",
+
+    // A list of additional directories to scan (usually Python standard
+    // library and frameworks).
+    "include_dirs" : [],
+
+    // Don't scan files in directories containing these strings
+    "exclude_dirs" : [
+        "/.git"
+    ]
 }

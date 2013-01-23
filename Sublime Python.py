@@ -57,12 +57,12 @@ class SymbolManager(object):
     def scan_all(self):
         options = []
         for directory in sublime.active_window().folders():
-            options.append('-d')
-            options.append(directory)
+            options.extend(['-d', directory])
+        for directory in SETTINGS.get('include_dirs', []):
+            options.extend(['-d', directory])
         for view in sublime.active_window().views():
             if view.file_name():
-                options.append('-f')
-                options.append(view.file_name())
+                options.extend(['-f', view.file_name()])
         def callback(symbols):
             self._symbols.set_all(symbols)
             self.loaded = True
@@ -94,7 +94,10 @@ class SymbolManager(object):
         symbols = []
         def add_symbol(name, type, filename, line):
             symbols.append(Symbol(name, type, filename, line))
-        process = subprocess.Popen([PYTHON, '-u', '%s/symbols.py' % APPDIR] + options,
+        exclude = []
+        for ex in SETTINGS.get('exclude_dirs', []):
+            exclude.extend(['-x', ex])
+        process = subprocess.Popen([PYTHON, '-u', '%s/symbols.py' % APPDIR] + exclude + options,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         while True:
             # using readline istead of 'for line in stdout' to avoid buffering
