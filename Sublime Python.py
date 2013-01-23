@@ -1,7 +1,7 @@
 import os
 import threading
 import subprocess
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 
 import sublime
 import sublime_plugin
@@ -13,6 +13,12 @@ APPDIR = os.path.abspath(os.path.split(__file__)[0])
 
 def error(message):
     sublime.message_dialog("Sublime Python\n\n" + message)
+
+SymbolBase = namedtuple('Symbol', 'name type filename line')
+class Symbol(SymbolBase):
+    @property
+    def location(self):
+        return '%s:%d' % (self.filename, self.line)
 
 class Symbols(object):
     def __init__(self):
@@ -34,7 +40,7 @@ class Symbols(object):
 
     def remove_file_symbols(self, filename):
         with self._lock:
-            self._symbols = [sym for sym in self._symbols if sym[1] != filename]
+            self._symbols = [sym for sym in self._symbols if sym.filename != filename]
 
 class SymbolManager(object):
     THREAD_NAME = "c50d5e10-60de-11e2-bcfd-0800200c9a66"
@@ -86,7 +92,7 @@ class SymbolManager(object):
     def _scan_thread(self, options, callback):
         symbols = []
         def add_symbol(name, type, filename, line):
-            symbols.append((name, filename, line))
+            symbols.append(Symbol(name, type, filename, line))
         process = subprocess.Popen([PYTHON, '-u', '%s/symbols.py' % APPDIR] + options,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         while True:
@@ -114,6 +120,19 @@ class SymbolManager(object):
         else:
             sublime.status_message("")
 
+def goto_symbol(window, symbols):
+    def on_selection(index):
+        if index == -1:
+            return
+        window.open_file(symbols[index].location+':0', sublime.ENCODED_POSITION)
+    if not symbols:
+        error("No matching symbols found.")
+    elif len(symbols) == 1:
+        on_selection(0)
+    else:
+        menu_items = [[sym.name, sym.location] for sym in symbols]
+        window.show_quick_panel(menu_items, on_selection)
+
 class SublimePythonGotoDialogCommand(sublime_plugin.WindowCommand):
     def run(self):
         manager = MANAGERS[self.window.id()]
@@ -121,15 +140,7 @@ class SublimePythonGotoDialogCommand(sublime_plugin.WindowCommand):
             error("Loading symbols, please try in a few moments...")
             manager.scan_all()
             return
-        symbols = manager.get_symbols()
-        symbols = [[sym[0], '%s:%d' % (sym[1], sym[2])]  for sym in symbols]
-        if not symbols:
-            error("No symbols found.")
-        def goto_symbol(index):
-            if index == -1:
-                return
-            self.window.open_file(symbols[index][1]+':0', sublime.ENCODED_POSITION)
-        self.window.show_quick_panel(symbols, goto_symbol)
+        goto_symbol(self.window, manager.get_symbols())
 
 class SublimePythonGotoWordCommand(sublime_plugin.TextCommand):
     def run(self, edit):
@@ -141,18 +152,8 @@ class SublimePythonGotoWordCommand(sublime_plugin.TextCommand):
         word = self.view.substr(self.view.word(self.view.sel()[0]))
         if not word:
             return
-        symbols = manager.get_symbols()
-        matches = [[sym[0], '%s:%d' % (sym[1], sym[2])] for sym in symbols if word == sym[0]]
-        def goto_match(index):
-            if index == -1:
-                return
-            self.view.window().open_file(matches[index][1]+':0', sublime.ENCODED_POSITION)
-        if len(matches) > 1:
-            self.view.window().show_quick_panel(matches, goto_match)
-        elif matches:
-            goto_match(0)
-        else:
-            error("Can't find definition for '%s'." % word)
+        symbols = [sym for sym in manager.get_symbols() if word == sym.name]
+        goto_symbol(self.view.window(), symbols)
 
 class SublimePythonScanCommand(sublime_plugin.WindowCommand):
     def run(self):
