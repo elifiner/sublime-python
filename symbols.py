@@ -2,12 +2,6 @@ import os
 import sys
 import ast
 
-def walk(dirs):
-    for dir in dirs:
-        for root, dirs, files in os.walk(dir):
-            for file in files:
-                yield os.path.join(root, file)
-
 class SymbolVisitor(ast.NodeVisitor):
     def __init__(self, filename):
         self.filename = filename
@@ -62,6 +56,12 @@ def print_symbols(filename):
     else:
         SymbolVisitor(filename).visit(tree)
 
+def walk(dirs):
+    for dir in dirs:
+        for root, dirs, files in os.walk(dir):
+            for file in files:
+                yield os.path.join(root, file)
+
 if __name__ == '__main__':
     from optparse import OptionParser
     parser = OptionParser(usage="%prog [options]", description="Prints symbols found in Python files")
@@ -75,6 +75,7 @@ if __name__ == '__main__':
 
     paths = list(walk(options.dirs or []))
     paths.extend(options.files or [])
+    paths = [p for p in paths if p.endswith('.py') and "/.git/" not in p]
 
     percent = 0
     for i, path in enumerate(paths):
@@ -83,5 +84,4 @@ if __name__ == '__main__':
             percent = new_percent
             print "progress(%d)" % percent
 
-        if path.endswith(".py") and "/.git/" not in path:
-            print_symbols(path)
+        print_symbols(path)

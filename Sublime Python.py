@@ -43,7 +43,7 @@ class Symbols(object):
             self._symbols = [sym for sym in self._symbols if sym.filename != filename]
 
 class SymbolManager(object):
-    THREAD_NAME = "c50d5e10-60de-11e2-bcfd-0800200c9a66"
+    THREAD_NAME = "__python_symbols_thread__"
 
     def __init__(self):
         self._symbols = Symbols()
@@ -79,6 +79,7 @@ class SymbolManager(object):
     def _scan(self, options, callback):
         old_threads = [t for t in threading.enumerate() if t.name == self.THREAD_NAME]
         if old_threads:
+            sublime.status_message("already scanning, please wait")
             return
         self._progress = 0
         self._show_progress()
@@ -96,6 +97,7 @@ class SymbolManager(object):
         process = subprocess.Popen([PYTHON, '-u', '%s/symbols.py' % APPDIR] + options,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         while True:
+            # using readline istead of 'for line in stdout' to avoid buffering
             line = process.stdout.readline()
             if not line:
                 break
