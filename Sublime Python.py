@@ -206,7 +206,7 @@ class SublimePythonEventListener(sublime_plugin.EventListener):
         manager = MANAGERS[sublime.active_window().id()]
         file_name = view.file_name()
         for folder in sublime.active_window().folders():
-            if file_name and file_name.startwith(folder):
+            if file_name and file_name.startswith(folder):
                 break
         else:
             manager.remove_file(file_name)
